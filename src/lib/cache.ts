@@ -1,8 +1,18 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import type { IndexedReferralRecord, IndexFileState } from './types';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// Serverless runtimes (e.g. Vercel /var/task) mount the app directory read-only;
+// store ephemeral cache in os.tmpdir() there and swallow disk errors gracefully.
+const IS_SERVERLESS = Boolean(
+  process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.cwd().startsWith('/var/task')
+);
+const DATA_DIR = IS_SERVERLESS
+  ? path.join(os.tmpdir(), 'ref-lookup')
+  : path.join(process.cwd(), 'data');
 const INDEX_FILE = path.join(DATA_DIR, 'referral-index.json');
 
 const EMPTY_STATE: IndexFileState = {
@@ -49,8 +59,12 @@ export async function saveIndexState(): Promise<void> {
   if (!memoryState) return;
   const snapshot = JSON.stringify(memoryState, null, 2);
   writeQueue = writeQueue.then(async () => {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(INDEX_FILE, snapshot, 'utf8');
+    try {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      await fs.writeFile(INDEX_FILE, snapshot, 'utf8');
+    } catch {
+      // Keep in-memory state intact if the filesystem is read-only
+    }
   });
   return writeQueue;
 }
