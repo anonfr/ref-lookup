@@ -259,15 +259,15 @@ export function LookupTerminal({
   };
 
   return (
-    <div className="min-h-screen bg-[#090a0d] text-[#ededed]">
+    <div className="min-h-screen overflow-x-hidden bg-[#090a0d] pb-[env(safe-area-inset-bottom)] text-[#ededed]">
       {/* Clean RISEx-style top header */}
       <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#090a0d]/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#7c5cff]/40 bg-[#7c5cff]/15">
+        <div className="mx-auto flex min-h-14 max-w-5xl items-center justify-between gap-2 px-3.5 py-2 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#7c5cff]/40 bg-[#7c5cff]/15">
               <span className="h-2.5 w-2.5 rotate-45 rounded-[2px] bg-[#8b6fff]" />
             </div>
-            <span className="text-sm font-semibold tracking-tight text-white">
+            <span className="shrink-0 text-sm font-semibold tracking-tight text-white">
               ref.lookup
             </span>
             <span className="hidden rounded border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400 sm:inline-block">
@@ -277,14 +277,14 @@ export function LookupTerminal({
               href="https://x.com/anonfrxbt"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 text-[11px] font-medium text-zinc-400 transition hover:border-[#7c5cff]/50 hover:text-white"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[10px] font-medium text-zinc-400 transition hover:border-[#7c5cff]/50 hover:text-white sm:px-2.5 sm:text-[11px]"
             >
               <span>made by</span>
               <span className="font-mono text-[#b4a3ff]">anonfrxbt</span>
             </a>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2.5">
             <div className="hidden items-center gap-3 font-mono text-[11px] text-zinc-400 md:flex">
               <span>
                 HL:{' '}
@@ -315,14 +315,19 @@ export function LookupTerminal({
                   : 'border-white/[0.09] bg-[#0f1116] text-zinc-300 hover:border-white/20 hover:text-white'
               }`}
             >
-              <KeyRound className="h-3.5 w-3.5" />
-              <span>{lighterToken ? 'Lighter Token Set' : 'Lighter Auth'}</span>
+              <KeyRound className="h-3.5 w-3.5 shrink-0" />
+              <span className="sm:hidden">
+                {lighterToken ? 'Token Set' : 'Auth'}
+              </span>
+              <span className="hidden sm:inline">
+                {lighterToken ? 'Lighter Token Set' : 'Lighter Auth'}
+              </span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto max-w-5xl px-3.5 py-6 sm:px-6 sm:py-14">
         {/* Hero Search Terminal */}
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#0f1116] px-3 py-1 text-[11px] font-medium text-zinc-400">
@@ -330,16 +335,34 @@ export function LookupTerminal({
             <span>Multi-venue referral &amp; builder address resolver</span>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-4xl">
+          <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-white sm:text-4xl">
             Find Address from Referral Code
           </h1>
-          <p className="mt-2.5 text-sm text-zinc-400 sm:text-[15px]">
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-400 sm:mt-2.5 sm:text-[15px]">
             Query referral codes, builder slugs, trader usernames, or{' '}
             <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-zinc-200">
               0x
             </code>{' '}
             addresses across Hyperliquid, Lighter, and RISEx.
           </p>
+
+          <div className="mt-3 flex items-center justify-center gap-3 font-mono text-[11px] text-zinc-400 md:hidden">
+            <span>
+              HL:{' '}
+              <strong className="font-medium text-zinc-200 tabular-nums">
+                {directory?.hyperliquid.indexedCount ?? 0}
+              </strong>{' '}
+              codes
+            </span>
+            <span className="text-white/15">|</span>
+            <span>
+              RISEx:{' '}
+              <strong className="font-medium text-zinc-200 tabular-nums">
+                {directory?.risex.buildersCount ?? 0}
+              </strong>{' '}
+              builders
+            </span>
+          </div>
         </div>
 
         {/* Search Input Form */}
@@ -348,17 +371,21 @@ export function LookupTerminal({
             e.preventDefault();
             void runLookup();
           }}
-          className="mx-auto mt-7 max-w-3xl"
+          className="mx-auto mt-5 max-w-3xl sm:mt-7"
         >
           <div className="relative flex items-center rounded-xl border border-white/[0.11] bg-[#0f1116] p-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] transition focus-within:border-[#7c5cff]/70 focus-within:ring-2 focus-within:ring-[#7c5cff]/20">
-            <Search className="ml-3 h-4 w-4 shrink-0 text-zinc-500" />
+            <Search className="ml-2.5 h-4 w-4 shrink-0 text-zinc-500 sm:ml-3" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Referral code (e.g. AXIOM), builder slug (tread), username, or 0x..."
-              className="h-11 w-full bg-transparent px-3 font-mono text-sm text-white placeholder:font-sans placeholder:text-zinc-500 focus:outline-none"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="Code, builder slug, username, or 0x..."
+              className="h-11 min-w-0 flex-1 bg-transparent px-2.5 font-mono text-base text-white placeholder:font-sans placeholder:text-sm placeholder:text-zinc-500 focus:outline-none sm:px-3 sm:text-sm"
             />
             {query && (
               <button
@@ -367,7 +394,7 @@ export function LookupTerminal({
                   setQuery('');
                   inputRef.current?.focus();
                 }}
-                className="mr-1.5 rounded-md p-1.5 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200"
+                className="mr-1 rounded-md p-2 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 sm:mr-1.5 sm:p-1.5"
                 aria-label="Clear query"
               >
                 <X className="h-4 w-4" />
@@ -376,12 +403,12 @@ export function LookupTerminal({
             <button
               type="submit"
               disabled={isLoading || !query.trim()}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#7c5cff] px-4 text-xs font-semibold text-white transition hover:bg-[#6d4aff] disabled:cursor-not-allowed disabled:opacity-45 sm:px-5 sm:text-sm"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#7c5cff] px-3.5 text-xs font-semibold text-white transition hover:bg-[#6d4aff] disabled:cursor-not-allowed disabled:opacity-45 sm:gap-2 sm:px-5 sm:text-sm"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Resolving</span>
+                  <span className="hidden sm:inline">Resolving</span>
                 </>
               ) : (
                 <span>Resolve</span>
@@ -390,12 +417,12 @@ export function LookupTerminal({
           </div>
 
           {/* Protocol Filter Bar & Quick Samples */}
-          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div className="mt-3.5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => setSelectedProtocols(PROTOCOLS)}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                className={`rounded-lg border px-2 py-1.5 text-center text-xs font-medium transition sm:px-2.5 sm:py-1 ${
                   selectedProtocols.length === PROTOCOLS.length
                     ? 'border-white/20 bg-white/[0.09] text-white'
                     : 'border-white/[0.07] bg-transparent text-zinc-400 hover:text-zinc-200'
@@ -411,31 +438,31 @@ export function LookupTerminal({
                     key={id}
                     type="button"
                     onClick={() => toggleProtocol(id)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition sm:px-2.5 sm:py-1 ${
                       active
                         ? 'border-white/20 bg-[#14171f] text-white'
                         : 'border-white/[0.06] bg-transparent text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                         active ? meta.dotColor : 'bg-zinc-600'
                       }`}
                     />
-                    <span>{meta.name}</span>
+                    <span className="truncate">{meta.name}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-zinc-500">Try:</span>
+            <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <span className="shrink-0 text-[11px] text-zinc-500">Try:</span>
               {QUICK_EXAMPLES.map((ex) => (
                 <button
                   key={`${ex.tag}-${ex.label}`}
                   type="button"
                   onClick={() => void runLookup(ex.query)}
-                  className="inline-flex items-center gap-1 rounded-md border border-white/[0.07] bg-[#0f1116] px-2 py-0.5 text-[11px] text-zinc-300 transition hover:border-white/20 hover:text-white"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/[0.07] bg-[#0f1116] px-2.5 py-1.5 text-[11px] text-zinc-300 transition hover:border-white/20 hover:text-white sm:px-2 sm:py-0.5"
                 >
                   <span className="font-mono">{ex.label}</span>
                   <span className="text-[10px] text-zinc-500">{ex.tag}</span>
@@ -447,24 +474,24 @@ export function LookupTerminal({
 
         {/* Live Scan Progress Bar */}
         {isScanning && scanProgress && (
-          <div className="mx-auto mt-5 max-w-3xl rounded-xl border border-[#50e3c2]/25 bg-[#0f1116] p-4">
-            <div className="flex items-center justify-between text-xs">
+          <div className="mx-auto mt-5 max-w-3xl rounded-xl border border-[#50e3c2]/25 bg-[#0f1116] p-3.5 sm:p-4">
+            <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 font-medium text-[#50e3c2]">
-                <Radar className="h-4 w-4 animate-pulse" />
+                <Radar className="h-4 w-4 shrink-0 animate-pulse" />
                 <span>Scanning Hyperliquid Leaderboard…</span>
               </div>
-              <div className="flex items-center gap-3 font-mono text-[11px] text-zinc-400 tabular-nums">
+              <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-zinc-400 tabular-nums sm:justify-end sm:gap-3">
                 <span>
                   {scanProgress.scannedInRun} / {scanProgress.totalBatch} wallets
                 </span>
-                <span>{scanProgress.totalIndexed} codes indexed</span>
+                <span>{scanProgress.totalIndexed} codes</span>
                 <button
                   type="button"
                   onClick={() => {
                     eventSourceRef.current?.close();
                     setIsScanning(false);
                   }}
-                  className="rounded border border-white/10 px-2 py-0.5 text-zinc-300 hover:bg-white/[0.06]"
+                  className="rounded border border-white/10 px-2.5 py-1 text-zinc-300 hover:bg-white/[0.06] sm:py-0.5"
                 >
                   Stop
                 </button>
@@ -565,7 +592,7 @@ export function LookupTerminal({
               value={tokenDraft}
               onChange={(e) => setTokenDraft(e.target.value)}
               placeholder="Paste Lighter auth token..."
-              className="mt-4 h-10 w-full rounded-lg border border-white/[0.1] bg-[#14171f] px-3 font-mono text-xs text-white placeholder:text-zinc-500 focus:border-[#7c5cff]/60 focus:outline-none"
+              className="mt-4 h-10 w-full rounded-lg border border-white/[0.1] bg-[#14171f] px-3 font-mono text-base text-white placeholder:text-sm placeholder:text-zinc-500 focus:border-[#7c5cff]/60 focus:outline-none sm:text-xs"
             />
 
             <div className="mt-4 flex items-center justify-end gap-2">

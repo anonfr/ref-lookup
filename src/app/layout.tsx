@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,13 @@ export const metadata: Metadata = {
   title: "ref.lookup — Find Address from Referral Code",
   description:
     "Resolve referral codes, builder slugs, trader usernames, and wallet addresses across Hyperliquid, Lighter, and RISEx.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#090a0d",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

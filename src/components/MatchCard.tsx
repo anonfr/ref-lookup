@@ -23,7 +23,15 @@ const MATCH_SOURCE_LABELS: Record<ResolutionMatch['matchSource'], string> = {
   account_index: 'Account Index',
 };
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
+function CopyButton({
+  text,
+  label,
+  fullWidth,
+}: {
+  text: string;
+  label?: string;
+  fullWidth?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -40,7 +48,9 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.08]"
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-2 text-xs font-medium text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.08] sm:py-1 ${
+        fullWidth ? 'w-full sm:w-auto' : ''
+      }`}
       title="Copy to clipboard"
     >
       {copied ? (
@@ -66,10 +76,10 @@ function MatchCard({
   onInspectQuery: (value: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.07] bg-[#14171f] p-4 transition hover:border-white/[0.14]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-lg border border-white/[0.07] bg-[#14171f] p-3.5 transition hover:border-white/[0.14] sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-zinc-300">
               {MATCH_SOURCE_LABELS[match.matchSource]}
             </span>
@@ -84,18 +94,18 @@ function MatchCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <code className="break-all font-mono text-sm font-semibold tracking-tight text-white sm:text-[15px]">
+            <code className="break-all font-mono text-[13px] font-semibold leading-snug tracking-tight text-white sm:text-[15px]">
               {match.address}
             </code>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <CopyButton text={match.address} label="Copy Address" />
+        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0 sm:flex-wrap sm:items-center">
+          <CopyButton text={match.address} label="Copy" />
           <button
             type="button"
             onClick={() => onInspectQuery(match.address)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#7c5cff]/35 bg-[#7c5cff]/12 px-2.5 py-1 text-xs font-medium text-[#c4b5fd] transition hover:border-[#7c5cff]/60 hover:bg-[#7c5cff]/20"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#7c5cff]/35 bg-[#7c5cff]/12 px-2.5 py-2 text-xs font-medium text-[#c4b5fd] transition hover:border-[#7c5cff]/60 hover:bg-[#7c5cff]/20 sm:py-1"
             title="Inspect this address across all protocols"
           >
             <Search className="h-3.5 w-3.5" />
@@ -106,7 +116,7 @@ function MatchCard({
               href={match.explorerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-white/20 hover:text-white"
+              className="inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs font-medium text-zinc-300 transition hover:border-white/20 hover:text-white sm:py-1"
             >
               <span>Explorer</span>
               <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
@@ -145,10 +155,10 @@ function MatchCard({
       )}
 
       {match.referredBy && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/[0.05] bg-[#0f1116] px-3 py-2 text-xs">
-          <div className="flex flex-wrap items-center gap-2 text-zinc-400">
-            <UserCheck className="h-3.5 w-3.5 text-[#50e3c2]" />
-            <span>Referred by code</span>
+        <div className="mt-3 flex flex-col gap-2 rounded-md border border-white/[0.05] bg-[#0f1116] px-3 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-zinc-400 sm:gap-2">
+            <UserCheck className="h-3.5 w-3.5 shrink-0 text-[#50e3c2]" />
+            <span>Referred by</span>
             <button
               type="button"
               onClick={() => onInspectQuery(match.referredBy!.code)}
@@ -160,12 +170,16 @@ function MatchCard({
             <button
               type="button"
               onClick={() => onInspectQuery(match.referredBy!.referrer)}
-              className="font-mono text-zinc-200 underline decoration-white/20 underline-offset-2 hover:text-white"
+              className="break-all text-left font-mono text-zinc-200 underline decoration-white/20 underline-offset-2 hover:text-white"
             >
               {match.referredBy.referrer}
             </button>
           </div>
-          <CopyButton text={match.referredBy.referrer} label="Copy Referrer" />
+          <CopyButton
+            text={match.referredBy.referrer}
+            label="Copy Referrer"
+            fullWidth
+          />
         </div>
       )}
 
@@ -237,18 +251,18 @@ export function ProtocolResultPanel({
       )}
 
       {(result.hint || result.canDeepScan || result.requiresAuth) && (
-        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-[#14171f]/70 px-3.5 py-2.5">
+        <div className="mt-3.5 flex flex-col gap-3 rounded-lg border border-white/[0.06] bg-[#14171f]/70 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-relaxed text-zinc-400">
             {result.hint ??
               'Add an optional Lighter Auth Token to query referral codes on Lighter.'}
           </p>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {result.canDeepScan && (
               <button
                 type="button"
                 onClick={onTriggerDeepScan}
                 disabled={isScanning}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#50e3c2]/30 bg-[#50e3c2]/12 px-3 py-1.5 text-xs font-medium text-[#50e3c2] transition hover:bg-[#50e3c2]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[#50e3c2]/30 bg-[#50e3c2]/12 px-3 py-2 text-xs font-medium text-[#50e3c2] transition hover:bg-[#50e3c2]/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
               >
                 <Radar className="h-3.5 w-3.5" />
                 <span>
@@ -260,7 +274,7 @@ export function ProtocolResultPanel({
               <button
                 type="button"
                 onClick={onOpenAuthModal}
-                className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-300 transition hover:bg-amber-500/20"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/12 px-3 py-2 text-xs font-medium text-amber-300 transition hover:bg-amber-500/20 sm:w-auto sm:py-1.5"
               >
                 <KeyRound className="h-3.5 w-3.5" />
                 <span>Set Lighter Token</span>
