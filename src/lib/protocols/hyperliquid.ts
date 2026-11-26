@@ -12,6 +12,7 @@ import type {
 
 const HL_INFO_URL = 'https://api.hyperliquid.xyz/info';
 const HL_LEADERBOARD_URL = 'https://stats-data.hyperliquid.xyz/Mainnet/leaderboard';
+const HL_VAULTS_URL = 'https://stats-data.hyperliquid.xyz/Mainnet/vaults';
 
 export interface HlLeaderboardRow {
   ethAddress: string;
@@ -54,6 +55,7 @@ interface HlReferralResponse {
 }
 
 let cachedLeaderboard: { rows: HlLeaderboardRow[]; fetchedAt: number } | null = null;
+let cachedPool: { rows: HlLeaderboardRow[]; fetchedAt: number } | null = null;
 
 export function isEvmAddress(value: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
@@ -91,19 +93,74 @@ export async function fetchHlLeaderboard(): Promise<HlLeaderboardRow[]> {
   return rows;
 }
 
+export async function fetchHlAddressPool(): Promise<HlLeaderboardRow[]> {
+  const now = Date.now();
+  if (cachedPool && now - cachedPool.fetchedAt < 10 * 60 * 1000) {
+    return cachedPool.rows;
+  }
+  const [lbRows, vaultsRes] = await Promise.all([
+    fetchHlLeaderboard(),
+    fetch(HL_VAULTS_URL, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
+    }).catch(() => null),
+  ]);
+
+  const seen = new Set<string>();
+  const combined: HlLeaderboardRow[] = [];
+
+  for (const row of lbRows) {
+    const key = row.ethAddress.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(row);
+    }
+  }
+
+  if (vaultsRes && vaultsRes.ok) {
+    const vaults = (await vaultsRes.json()) as Array<{
+      summary?: { leader?: string; name?: string };
+    }>;
+    for (const v of vaults ?? []) {
+      const leader = v?.summary?.leader;
+      if (!leader) continue;
+      const key = leader.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push({
+          ethAddress: leader,
+          accountValue: '0',
+          displayName: v.summary?.name || null,
+          windowPerformances: [],
+        });
+      }
+    }
+  }
+
+  cachedPool = { rows: combined, fetchedAt: now };
+  return combined;
+}
+
 export async function fetchHlReferralByUser(
   address: string
 ): Promise<HlReferralResponse | null> {
-  const res = await fetch(HL_INFO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'referral', user: address }),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as HlReferralResponse | null;
-  return data;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(HL_INFO_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'referral', user: address }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (res.status === 429 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 1500));
+      continue;
+    }
+    if (!res.ok) return null;
+    const data = (await res.json()) as HlReferralResponse | null;
+    return data;
+  }
+  return null;
 }
 
 async function indexHlResponse(
@@ -196,7 +253,7 @@ function buildMatchFromReferral(
           code: data.referredBy.code,
         }
       : undefined,
-    referredUsers: referrals.slice(0, 12).map((ref) => ({
+    referredUsers: referrals.map((ref) => ({
       address: ref.user,
       volume: formatUsd(ref.cumVlm),
       feesRewarded: formatUsd(ref.cumFeesRewardedToReferrer),
@@ -228,7 +285,7 @@ export async function scanHlBatch(options: {
 
   const [state, leaderboard] = await Promise.all([
     loadIndexState(),
-    fetchHlLeaderboard(),
+    fetchHlAddressPool(),
   ]);
 
   if (targetUpper && state.hlCodes[targetUpper]) {
@@ -465,14 +522,14 @@ export async function resolveHyperliquid(
       };
     }
 
-    return {
-      protocol: 'hyperliquid',
-      status: 'not_found',
-      matches: [],
-      canDeepScan: true,
-      message: `Code "${codeUpper}" not yet found across ${state.hlScannedAddresses.length.toLocaleString()} scanned leaderboard wallets.`,
-      hint: 'Hyperliquid has no direct code-to-address endpoint; run Deep Scan to index more of the 46,700+ leaderboard accounts, or enter any wallet address that used this code to extract its referrer.',
-    };
+  return {
+    protocol: 'hyperliquid',
+    status: 'not_found',
+    matches: [],
+    canDeepScan: true,
+    message: `Code "${codeUpper}" not yet found across ${state.hlScannedAddresses.length.toLocaleString()} scanned addresses.`,
+    hint: `Hyperliquid has no direct code-to-address endpoint; click "Scan All HL Wallets" to scan continuously across all ~${leaderboard.length.toLocaleString()} leaderboard & vault leader wallets from your browser, or enter any wallet address that used this code.`,
+  };
   } catch (error) {
     return {
       protocol: 'hyperliquid',

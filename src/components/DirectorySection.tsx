@@ -120,7 +120,7 @@ export function DirectorySection({
                 className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#50e3c2]/30 bg-[#50e3c2]/10 px-3 text-xs font-medium text-[#50e3c2] transition hover:bg-[#50e3c2]/20 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:w-auto"
               >
                 <Radar className="h-3.5 w-3.5" />
-                <span>{isScanning ? 'Scanning…' : 'Index +300 Traders'}</span>
+                <span>{isScanning ? 'Scanning…' : 'Scan All HL'}</span>
               </button>
             )}
           </div>

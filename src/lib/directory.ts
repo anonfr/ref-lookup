@@ -1,12 +1,12 @@
 import { loadIndexState } from './cache';
-import { fetchHlLeaderboard } from './protocols/hyperliquid';
+import { fetchHlAddressPool } from './protocols/hyperliquid';
 import { fetchRisexBuilders } from './protocols/risex';
 import type { DirectoryResponse } from './types';
 
 export async function getDirectorySnapshot(): Promise<DirectoryResponse> {
-  const [state, hlLeaderboard, risexBuilders] = await Promise.all([
+  const [state, hlPool, risexBuilders] = await Promise.all([
     loadIndexState(),
-    fetchHlLeaderboard().catch(() => []),
+    fetchHlAddressPool().catch(() => []),
     fetchRisexBuilders().catch(() => []),
   ]);
 
@@ -26,8 +26,8 @@ export async function getDirectorySnapshot(): Promise<DirectoryResponse> {
     hyperliquid: {
       indexedCount: hlRecords.length,
       scannedTradersCount: state.hlScannedAddresses.length,
-      leaderboardTotal: hlLeaderboard.length,
-      records: hlRecords.slice(0, 100),
+      leaderboardTotal: hlPool.length,
+      records: hlRecords.slice(0, 200),
     },
     risex: {
       buildersCount: risexBuilders.length,

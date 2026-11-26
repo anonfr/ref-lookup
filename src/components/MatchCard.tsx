@@ -68,6 +68,85 @@ function CopyButton({
   );
 }
 
+function ReferredUsersList({
+  users,
+  onInspectQuery,
+}: {
+  users: NonNullable<ResolutionMatch['referredUsers']>;
+  onInspectQuery: (value: string) => void;
+}) {
+  const [filter, setFilter] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  const filtered = filter.trim()
+    ? users.filter((u) =>
+        u.address.toLowerCase().includes(filter.trim().toLowerCase())
+      )
+    : users;
+
+  const visible = showAll ? filtered : filtered.slice(0, 20);
+  const allAddressesText = filtered.map((u) => u.address).join('\n');
+
+  return (
+    <div className="mt-3 rounded-md border border-white/[0.05] bg-[#0f1116] p-3">
+      <div className="mb-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-300">
+          <span>Referred People Addresses ({filtered.length})</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {users.length > 5 && (
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter 0x..."
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-8 w-full rounded border border-white/[0.08] bg-[#14171f] px-2 font-mono text-base text-zinc-200 placeholder:text-xs placeholder:text-zinc-500 focus:border-[#7c5cff]/60 focus:outline-none sm:h-7 sm:w-40 sm:text-[11px]"
+            />
+          )}
+          <CopyButton text={allAddressesText} label="Copy All" />
+        </div>
+      </div>
+
+      <div className="max-h-72 divide-y divide-white/[0.05] overflow-y-auto pr-1">
+        {visible.map((ref) => (
+          <div
+            key={ref.address}
+            className="flex items-center justify-between gap-3 py-2 text-xs"
+          >
+            <button
+              type="button"
+              onClick={() => onInspectQuery(ref.address)}
+              className="min-w-0 truncate text-left font-mono text-zinc-300 hover:text-white"
+              title={ref.address}
+            >
+              {ref.address}
+            </button>
+            <div className="flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
+              <span className="text-zinc-400">{ref.volume}</span>
+              <span className="text-emerald-400">{ref.feesRewarded}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filtered.length > 20 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-2 w-full rounded border border-white/[0.07] bg-white/[0.03] py-1.5 text-[11px] font-medium text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+        >
+          {showAll
+            ? 'Show Top 20'
+            : `Show All ${filtered.length.toLocaleString()} Referred Addresses`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MatchCard({
   match,
   onInspectQuery,
@@ -184,32 +263,10 @@ function MatchCard({
       )}
 
       {match.referredUsers && match.referredUsers.length > 0 && (
-        <div className="mt-3 rounded-md border border-white/[0.05] bg-[#0f1116] p-3">
-          <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-zinc-400">
-            <span>Top Referred Addresses ({match.referredUsers.length} shown)</span>
-            <span className="font-mono text-zinc-500">Volume / Rewards</span>
-          </div>
-          <div className="divide-y divide-white/[0.05]">
-            {match.referredUsers.slice(0, 5).map((ref) => (
-              <div
-                key={ref.address}
-                className="flex items-center justify-between gap-3 py-1.5 text-xs"
-              >
-                <button
-                  type="button"
-                  onClick={() => onInspectQuery(ref.address)}
-                  className="truncate font-mono text-zinc-300 hover:text-white"
-                >
-                  {ref.address}
-                </button>
-                <div className="flex shrink-0 items-center gap-3 font-mono text-[11px] tabular-nums">
-                  <span className="text-zinc-400">{ref.volume}</span>
-                  <span className="text-emerald-400">{ref.feesRewarded}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ReferredUsersList
+          users={match.referredUsers}
+          onInspectQuery={onInspectQuery}
+        />
       )}
     </div>
   );
@@ -266,7 +323,7 @@ export function ProtocolResultPanel({
               >
                 <Radar className="h-3.5 w-3.5" />
                 <span>
-                  {isScanning ? 'Scanning…' : 'Deep Scan (+400 Wallets)'}
+                  {isScanning ? 'Scanning…' : 'Scan All HL Wallets'}
                 </span>
               </button>
             )}

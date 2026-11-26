@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   KeyRound,
   Loader2,
@@ -8,8 +8,14 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import {
+  loadLocalHlCodes,
+  runBrowserHlScan,
+  type BrowserScanProgress,
+} from '@/lib/hlBrowserScan';
 import type {
   DirectoryResponse,
+  IndexedReferralRecord,
   ProtocolId,
   ProtocolLookupResult,
 } from '@/lib/types';
@@ -41,12 +47,7 @@ const QUICK_EXAMPLES: Array<{
   },
 ];
 
-interface ScanProgress {
-  scannedInRun: number;
-  totalBatch: number;
-  totalIndexed: number;
-  totalScannedEver: number;
-}
+type ScanProgress = BrowserScanProgress;
 
 const TOKEN_KEY = 'lighter_auth_token';
 const tokenListeners = new Set<() => void>();
@@ -100,9 +101,46 @@ export function LookupTerminal({
 
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [localHlCodes, setLocalHlCodes] = useState<
+    Record<string, IndexedReferralRecord>
+  >({});
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const scanAbortRef = useRef<AbortController | null>(null);
+
+  const mergedDirectory = useMemo<DirectoryResponse | null>(() => {
+    if (!directory) return null;
+    const byCode = new Map<string, IndexedReferralRecord>();
+    for (const r of directory.hyperliquid.records) {
+      byCode.set(r.codeUpper, r);
+    }
+    for (const r of Object.values(localHlCodes)) {
+      const existing = byCode.get(r.codeUpper);
+      if (
+        !existing ||
+        r.source === 'referrer_state' ||
+        existing.source !== 'referrer_state'
+      ) {
+        byCode.set(r.codeUpper, r);
+      }
+    }
+    const mergedRecords = Array.from(byCode.values()).sort((a, b) => {
+      const diff = (b.referredCount ?? 0) - (a.referredCount ?? 0);
+      if (diff !== 0) return diff;
+      return b.updatedAt - a.updatedAt;
+    });
+    return {
+      ...directory,
+      hyperliquid: {
+        ...directory.hyperliquid,
+        indexedCount: Math.max(
+          directory.hyperliquid.indexedCount,
+          mergedRecords.length
+        ),
+        records: mergedRecords,
+      },
+    };
+  }, [directory, localHlCodes]);
 
   const refreshDirectory = useCallback(async () => {
     try {
@@ -130,7 +168,7 @@ export function LookupTerminal({
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      eventSourceRef.current?.close();
+      scanAbortRef.current?.abort();
     };
   }, []);
 
@@ -146,6 +184,17 @@ export function LookupTerminal({
       setLastQuery(target);
 
       try {
+        // Sync any browser-discovered code match before querying server
+        const localMap = loadLocalHlCodes();
+        const localHit = localMap[target.toUpperCase()];
+        if (localHit) {
+          await fetch('/api/hl/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ records: [localHit] }),
+          }).catch(() => null);
+        }
+
         const res = await fetch('/api/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -184,69 +233,48 @@ export function LookupTerminal({
   };
 
   const startDeepScan = useCallback(
-    (targetCode?: string, batchSize = 400) => {
+    async (targetCode?: string) => {
       if (isScanning) return;
-      eventSourceRef.current?.close();
+      scanAbortRef.current?.abort();
+      const controller = new AbortController();
+      scanAbortRef.current = controller;
+
       setIsScanning(true);
       setScanProgress({
         scannedInRun: 0,
-        totalBatch: batchSize,
-        totalIndexed: directory?.hyperliquid.indexedCount ?? 0,
+        totalPool: directory?.hyperliquid.leaderboardTotal || 52000,
+        totalIndexed: mergedDirectory?.hyperliquid.indexedCount ?? 0,
         totalScannedEver: directory?.hyperliquid.scannedTradersCount ?? 0,
+        rateLimited: false,
       });
 
-      const params = new URLSearchParams({
-        batchSize: String(batchSize),
-      });
-      if (targetCode) params.set('targetCode', targetCode);
-
-      const es = new EventSource(`/api/hl/scan?${params.toString()}`);
-      eventSourceRef.current = es;
-
-      es.addEventListener('progress', (ev) => {
-        try {
-          const payload = JSON.parse(ev.data) as ScanProgress;
-          setScanProgress(payload);
-        } catch {
-          // ignore malformed progress
+      try {
+        const result = await runBrowserHlScan({
+          targetCode,
+          signal: controller.signal,
+          onProgress: (prog) => {
+            setScanProgress(prog);
+          },
+          onCodesDiscovered: (codes) => {
+            setLocalHlCodes(codes);
+          },
+        });
+        await refreshDirectory();
+        if (result.found) {
+          await runLookup(result.found.address);
         }
-      });
-
-      es.addEventListener('done', async (ev) => {
-        es.close();
+      } finally {
         setIsScanning(false);
-        try {
-          const payload = JSON.parse(ev.data) as {
-            found?: { code: string };
-            totalIndexed: number;
-            totalScannedEver: number;
-            scannedInRun: number;
-          };
-          setScanProgress((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  scannedInRun: payload.scannedInRun,
-                  totalIndexed: payload.totalIndexed,
-                  totalScannedEver: payload.totalScannedEver,
-                }
-              : null
-          );
-          await refreshDirectory();
-          if (payload.found?.code || targetCode) {
-            await runLookup(targetCode || payload.found?.code);
-          }
-        } catch {
-          await refreshDirectory();
-        }
-      });
-
-      es.addEventListener('error', () => {
-        es.close();
-        setIsScanning(false);
-      });
+      }
     },
-    [directory, isScanning, refreshDirectory, runLookup]
+    [
+      directory?.hyperliquid.leaderboardTotal,
+      directory?.hyperliquid.scannedTradersCount,
+      isScanning,
+      mergedDirectory?.hyperliquid.indexedCount,
+      refreshDirectory,
+      runLookup,
+    ]
   );
 
   const saveLighterToken = () => {
@@ -289,7 +317,7 @@ export function LookupTerminal({
               <span>
                 HL:{' '}
                 <strong className="font-medium text-zinc-200 tabular-nums">
-                  {directory?.hyperliquid.indexedCount ?? 0}
+                  {mergedDirectory?.hyperliquid.indexedCount ?? 0}
                 </strong>{' '}
                 codes
               </span>
@@ -297,7 +325,7 @@ export function LookupTerminal({
               <span>
                 RISEx:{' '}
                 <strong className="font-medium text-zinc-200 tabular-nums">
-                  {directory?.risex.buildersCount ?? 0}
+                  {mergedDirectory?.risex.buildersCount ?? 0}
                 </strong>{' '}
                 builders
               </span>
@@ -350,7 +378,7 @@ export function LookupTerminal({
             <span>
               HL:{' '}
               <strong className="font-medium text-zinc-200 tabular-nums">
-                {directory?.hyperliquid.indexedCount ?? 0}
+                {mergedDirectory?.hyperliquid.indexedCount ?? 0}
               </strong>{' '}
               codes
             </span>
@@ -358,7 +386,7 @@ export function LookupTerminal({
             <span>
               RISEx:{' '}
               <strong className="font-medium text-zinc-200 tabular-nums">
-                {directory?.risex.buildersCount ?? 0}
+                {mergedDirectory?.risex.buildersCount ?? 0}
               </strong>{' '}
               builders
             </span>
@@ -478,17 +506,22 @@ export function LookupTerminal({
             <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 font-medium text-[#50e3c2]">
                 <Radar className="h-4 w-4 shrink-0 animate-pulse" />
-                <span>Scanning Hyperliquid Leaderboard…</span>
+                <span>
+                  {scanProgress.rateLimited
+                    ? 'Scanning Hyperliquid (pacing ~60/min)…'
+                    : 'Scanning All Hyperliquid Wallets…'}
+                </span>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-zinc-400 tabular-nums sm:justify-end sm:gap-3">
                 <span>
-                  {scanProgress.scannedInRun} / {scanProgress.totalBatch} wallets
+                  {scanProgress.totalScannedEver.toLocaleString()} /{' '}
+                  {scanProgress.totalPool.toLocaleString()} wallets
                 </span>
-                <span>{scanProgress.totalIndexed} codes</span>
+                <span>{scanProgress.totalIndexed.toLocaleString()} codes</span>
                 <button
                   type="button"
                   onClick={() => {
-                    eventSourceRef.current?.close();
+                    scanAbortRef.current?.abort();
                     setIsScanning(false);
                   }}
                   className="rounded border border-white/10 px-2.5 py-1 text-zinc-300 hover:bg-white/[0.06] sm:py-0.5"
@@ -504,8 +537,8 @@ export function LookupTerminal({
                   width: `${Math.min(
                     100,
                     Math.round(
-                      (scanProgress.scannedInRun /
-                        Math.max(scanProgress.totalBatch, 1)) *
+                      (scanProgress.totalScannedEver /
+                        Math.max(scanProgress.totalPool, 1)) *
                         100
                     )
                   )}%`,
@@ -540,7 +573,7 @@ export function LookupTerminal({
                 key={result.protocol}
                 result={result}
                 onInspectQuery={(val) => void runLookup(val)}
-                onTriggerDeepScan={() => startDeepScan(lastQuery, 400)}
+                onTriggerDeepScan={() => void startDeepScan(lastQuery)}
                 onOpenAuthModal={() => {
                   setTokenDraft(lighterToken);
                   setShowAuthModal(true);
@@ -553,9 +586,9 @@ export function LookupTerminal({
 
         {/* Directory & Protocol Capabilities */}
         <DirectorySection
-          directory={directory}
+          directory={mergedDirectory}
           onSelectQuery={(q) => void runLookup(q)}
-          onScanMore={() => startDeepScan(undefined, 300)}
+          onScanMore={() => void startDeepScan(undefined)}
           isScanning={isScanning}
         />
       </main>
